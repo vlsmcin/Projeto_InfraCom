@@ -15,3 +15,8 @@
 - Mandar o projeto no classroom compactado, deixar no github mas mandar compactado
 - Deixar o projeto bem documentado e comentado, documentado pode ser pelo readme eu acredito
 - Documentar também o que fez, a linha de raciocínio etc
+
+#### Instruções adicionais
+
+- Cada entrega deve conter, em sua pasta, um readme exclusivo daquela entrega, com instruções de execução e eventuais observações necessárias e o nome dos integrantes. Comentem o código!
+- Em cada etapa, deverá ser entregue, pelo Google Classroom, uma pasta compactada com os códigos ou um link do github com uma pasta para cada entrega. A atividade deverá ser entregue por cada um dos membros da equipe, nesses termos. 
