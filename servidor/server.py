@@ -11,10 +11,12 @@ print ('The server is ready to receive')
 while True:
     message, clientAddress = serverSocket.recvfrom(2048)
 
+    print(message.isascii())
+
     modifiedMessage = message.decode()
 
-    file = open('./arquivos_recebidos_servidor/ex_recebido.txt', 'w')
+    file = open('./arquivos_recebidos_servidor/teste.txt', 'w')
     file.write(modifiedMessage)
     file.close()
 
-    serverSocket.sendto(modifiedMessage.encode(), clientAddress)
+    serverSocket.sendto(modifiedMessage, clientAddress)
