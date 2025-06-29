@@ -4,19 +4,19 @@ serverPort = 12000
 
 serverSocket = socket(AF_INET, SOCK_DGRAM)
 
-serverSocket.bind(('', serverPort))
+serverSocket.bind(('localhost', serverPort))
 
 print ('The server is ready to receive')
 
 while True:
-    message, clientAddress = serverSocket.recvfrom(2048)
+    message, clientAddress = serverSocket.recvfrom(1024)
 
     print(message.isascii())
+    
+    modifiedMessage = message
 
-    modifiedMessage = message.decode()
-
-    file = open('./arquivos_recebidos_servidor/teste.txt', 'w')
+    file = open('./arquivos_recebidos_servidor/teste.txt', 'ab')
     file.write(modifiedMessage)
     file.close()
-
+    
     serverSocket.sendto(modifiedMessage, clientAddress)
