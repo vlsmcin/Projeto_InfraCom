@@ -1,3 +1,4 @@
+import os
 from socket import *
 
 serverName = 'localhost'
@@ -8,20 +9,24 @@ clientSocket = socket(AF_INET, SOCK_DGRAM)
 
 fileName = 'santa.png'
 
-if fileName.endswith('.png'):
-    file = open('./arquivos_para_enviar/santa.png', 'rb')
-    fileContent = file.read()
-    file.close()
+file = open(f'./arquivos_para_enviar/{fileName}', 'rb')
+
+fileContent = file.read(1024)
+while fileContent:
     clientSocket.sendto(fileContent, (serverName, serverPort))
+    fileContent = file.read(1024)
 
-else: 
-    file = open('./arquivos_para_enviar/ex.txt', 'r')
-    fileContent = file.read()
-    file.close()
-    clientSocket.sendto(fileContent.encode(), (serverName, serverPort))
+file.close()
 
-modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
+#clientSocket.sendto(fileContent, (serverName, serverPort))
 
 print('Message successfully sent')
+
+modifiedMessage, serverAddress = clientSocket.recvfrom(1024)
+
+file = open(f'./arquivos_recebidos_cliente/{fileName}', 'wb')
+file.write(modifiedMessage)
+file.close()
+
 
 clientSocket.close()
