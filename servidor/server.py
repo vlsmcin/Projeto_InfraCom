@@ -36,4 +36,6 @@ while True:
                 serverSocket.sendto(returnMessage, clientAddress)
                 returnMessage = f.read(1024)
         metadata = True
-        
+
+# Se pedirem múltiplos clientes, criar uma thread ou simplesmente juntar com o ip
+# Seria bom a thread, ai manda como parametro pra thread o filename e o ip do cliente
