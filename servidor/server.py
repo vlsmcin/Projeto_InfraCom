@@ -1,4 +1,5 @@
 from socket import *
+import os
 
 serverPort = 12000
 
@@ -8,26 +9,31 @@ serverSocket.bind(('localhost', serverPort))
 
 print ('The server is ready to receive')
 
-while True:
-    message, clientAddress = serverSocket.recvfrom(1024)
+metadata = True
 
-    print(message.isascii())
-    
+while True:
+    if metadata:
+        filename, clientAddress = serverSocket.recvfrom(1024)
+        metadata = False
+        filename = filename.decode()
+        name, extension = os.path.splitext(filename)
+        file_count = 1
+        while os.path.exists(f'./arquivos_recebidos_servidor/{name}' + f'_{file_count}' + extension):
+            file_count += 1
+        filename = name + f'_{file_count}' + extension
+        
+    message, clientAddress = serverSocket.recvfrom(1024)
     modifiedMessage = message
 
-    file = open('./arquivos_recebidos_servidor/teste.txt', 'ab')
-    file.write(modifiedMessage)
-    file.close()
-    
-    print(len(message))    
-
+    with open(f'./arquivos_recebidos_servidor/{filename}', 'ab') as f:
+        f.write(modifiedMessage)
 
     if len(message) < 1024:
-        with open('./arquivos_recebidos_servidor/teste.txt', 'rb') as f:
+        serverSocket.sendto(filename.encode(), clientAddress)
+        with open(f'./arquivos_recebidos_servidor/{filename}', 'rb') as f:
             returnMessage = f.read(1024)
             while returnMessage:
                 serverSocket.sendto(returnMessage, clientAddress)
                 returnMessage = f.read(1024)
+        metadata = True
         
-    
-    
