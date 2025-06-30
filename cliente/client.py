@@ -1,4 +1,3 @@
-import os
 from socket import *
 
 serverName = 'localhost'
@@ -7,26 +6,23 @@ serverPort = 12000
 
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 
-fileName = 'santa.png'
+fileName = 'nautico.jpg'
 
-file = open(f'./arquivos_para_enviar/{fileName}', 'rb')
+packagesCount = 0
+with open(f'./arquivos_para_enviar/{fileName}', 'rb') as f:
+    fileContent = f.read(1024)
+    while fileContent:
+        clientSocket.sendto(fileContent, (serverName, serverPort))
+        packagesCount+=1
+        fileContent = f.read(1024)
 
-fileContent = file.read(1024)
-while fileContent:
-    clientSocket.sendto(fileContent, (serverName, serverPort))
-    fileContent = file.read(1024)
-
-file.close()
-
-#clientSocket.sendto(fileContent, (serverName, serverPort))
 
 print('Message successfully sent')
 
-modifiedMessage, serverAddress = clientSocket.recvfrom(1024)
+for i in range(packagesCount):
+    modifiedMessage, serverAddress = clientSocket.recvfrom(1024)
 
-file = open(f'./arquivos_recebidos_cliente/{fileName}', 'wb')
-file.write(modifiedMessage)
-file.close()
-
+    with open(f'./arquivos_recebidos_cliente/{fileName}', 'ab') as f:
+        f.write(modifiedMessage)
 
 clientSocket.close()

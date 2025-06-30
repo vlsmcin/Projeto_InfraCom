@@ -19,4 +19,15 @@ while True:
     file.write(modifiedMessage)
     file.close()
     
-    serverSocket.sendto(modifiedMessage, clientAddress)
+    print(len(message))    
+
+
+    if len(message) < 1024:
+        with open('./arquivos_recebidos_servidor/teste.txt', 'rb') as f:
+            returnMessage = f.read(1024)
+            while returnMessage:
+                serverSocket.sendto(returnMessage, clientAddress)
+                returnMessage = f.read(1024)
+        
+    
+    
