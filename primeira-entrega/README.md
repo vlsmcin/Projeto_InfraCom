@@ -14,7 +14,7 @@
 - No terminal do cliente:
     - Navegar para o diretório cliente -> `cd cliente`
     - Caso queira adicionar um arquivo para mandar, fazer upload na pasta arquivos_para_enviar
-    - Para escolher o arquivo a ser enviado, alterar a linha 10 do arquivo client.py, especificando a string do nome do arquivo
+    - Para escolher o arquivo a ser enviado, alterar a linha 10 do arquivo client.py, especificando a string com nome do arquivo
     - Executar (No linux, trocar python por python3) -> `python client.py`
  
 #### Integrantes
