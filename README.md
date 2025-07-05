@@ -5,18 +5,10 @@
 - Nessa entrega se deve implementar o envio e devolução de arquivos, reforçando que o envio de strings não é suficiente. Sugerimos que testem o programa para ao menos dois tipos de arquivos, como por exemplo um .txt e uma imagem. 
 - É necessário a alteração do nome do arquivo antes da devolução ao cliente para demonstrar o funcionamento correto do código.
 
-#### Requisitos do vídeo dela
+#### Integrantes
 
-- Estabelecer conexão
-- Mandar arquivos de formatos diferentes (txt, mp4, png)
-- Ter um diretório com os dados a serem enviados (cliente)
-- Servidor deve guardar os dados recebidos em um folder com nome diferente
-- Servidor armazena e depois reenvia para o cliente que também armazenará com outro nome
-- Mandar o projeto no classroom compactado, deixar no github mas mandar compactado
-- Deixar o projeto bem documentado e comentado, documentado pode ser pelo readme eu acredito
-- Documentar também o que fez, a linha de raciocínio etc
-
-#### Instruções adicionais
-
-- Cada entrega deve conter, em sua pasta, um readme exclusivo daquela entrega, com instruções de execução e eventuais observações necessárias e o nome dos integrantes. Comentem o código!
-- Em cada etapa, deverá ser entregue, pelo Google Classroom, uma pasta compactada com os códigos ou um link do github com uma pasta para cada entrega. A atividade deverá ser entregue por cada um dos membros da equipe, nesses termos. 
+- Daniel Silvestre de França e Souza
+- João Pedro Barbosa Marins
+- Marcelo Arcoverde Neves Britto de Rezende
+- Rafael Paz Fernandes
+- Vinícius Lima Sá de Melo
