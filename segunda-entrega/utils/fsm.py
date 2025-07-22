@@ -20,7 +20,6 @@ class Packets:
 
 def FSM_receptor(filename, socket, address):
     state = receptor_States.Wait_0
-    i = 0
     data = []
 
     while True:
@@ -36,20 +35,20 @@ def FSM_receptor(filename, socket, address):
 
                 socket.settimeout(None)
 
-
-                if p.seq_number == 0:
+                # R0: Wait for 0 from below -> Wait for 1 from below
+                if p.seq_number == 0: 
                     data.append(p.data)
                     send_p = Packets(seq_number=0, data= b"ACK")
                     socket.sendto(send_p, address)
                     state = receptor_States.Wait_1
-                    i += 1
+                # R3: Wait for 0 from below -> Wait for 0 from below
                 else:
                     send_p = Packets(seq_number=1, data= b"ACK")
                     socket.sendto(send_p, address)
                     state = receptor_States.Wait_0
                 
             case receptor_States.Wait_1:
-                p:Packets = socket.recvfrom(1024)
+                socket.settimeout(5)
 
                 try:
                     p:Packets = socket.recvfrom(1024)
@@ -59,12 +58,13 @@ def FSM_receptor(filename, socket, address):
 
                 socket.settimeout(None)
 
+                # R2: Wait for 1 from below -> Wait for 0 from below
                 if p.seq_number == 1:
                     data.append(p.data)
                     send_p = Packets(seq_number=1, data= b"ACK")
                     socket.sendto(send_p, address)
                     state = receptor_States.Wait_0
-                    i += 1
+                # R1: Wait for 1 from below -> Wait for 1 from below
                 else:
                     send_p = Packets(seq_number=0, data= b"ACK")
                     socket.sendto(send_p, address)
