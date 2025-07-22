@@ -1,5 +1,9 @@
 from socket import *
-import os
+import os, sys
+
+sys.path.append(os.path.abspath("../"))
+
+import utils
 
 # Inicialização do servidor, tendo a porta, o ip e tipo (UDP)
 serverPort = 12000
@@ -13,6 +17,11 @@ print ('The server is ready to receive')
 metadata = True
 # Variável para contar quantos pacotes foram enviados
 loopCount = 0
+        
+def process_packet(data, filename):
+    with open(f'./arquivos_recebidos_servidor/{filename}', 'ab') as f:
+        f.write(data)
+
 
 # Loop infinito que o servidor executa esperando pacotes
 while True:

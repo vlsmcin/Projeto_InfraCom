@@ -1,6 +1,10 @@
 from socket import *
-import os
+import os, sys
 from math import ceil
+
+sys.path.append(os.path.abspath("../"))
+
+import utils
 
 # Dados do servidor (porta e ip)
 serverName = 'localhost'
@@ -9,7 +13,7 @@ serverPort = 12000
 
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 
-fileName = 'ex2.txt'
+fileName = 'ex.txt'
 
 # Ler partes do arquivo (1024 bytes) para dividir no pacote
 # Manda primeiro o nome do arquivo e depois manda o arquivo
@@ -21,10 +25,13 @@ with open(f'./arquivos_para_enviar/{fileName}', 'rb') as f:
     clientSocket.sendto(packagesCount.to_bytes(4, byteorder='big'), (serverName, serverPort))
     fileContent = f.read(1024)
     # Continua no loop até não ter mais o que ler
+    dados = []
     while fileContent:
         # Não precisa ter encode pois lê em binário
-        clientSocket.sendto(fileContent, (serverName, serverPort))
+        #clientSocket.sendto(fileContent, (serverName, serverPort))
+        dados.append(fileContent)
         fileContent = f.read(1024)
+    FSM_transmissor(dados)
 
 
 print('Message successfully sent')
