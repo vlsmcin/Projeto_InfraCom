@@ -1,6 +1,5 @@
 from socket import *
 from enum import Enum
-import os
 
 class receptor_States(Enum):
     Wait_0 = 0
@@ -13,7 +12,7 @@ class transmissor_States(Enum):
     Wait_1_ACK = 3
 
 class Packets:
-    def __init__(self, data, package, seq_number):
+    def __init__(self, data, seq_number):
         self.data = data
         self.seq_number = seq_number
 
@@ -73,45 +72,49 @@ def FSM_receptor(filename, socket, address):
 
 def FSM_transmissor(fileName, socket, address):
     state = transmissor_States.Wait_0_above
-    i = 0
     p:Packets
+    
     with open(f'./arquivos_para_enviar/{fileName}', 'rb') as f:
         while True:
             match state:
                 case transmissor_States.Wait_0_above:
-                    p = Packets(f.read(1020),0)
+                    # S0: Wait for call 0 from above -> Wait for ACK0
+                    p = Packets(data=f.read(1020),seq_number=0)
                     socket.sendto(p, address)
                     socket.settimeout(1)
                     state = transmissor_States.Wait_0_ACK
 
                 case transmissor_States.Wait_0_ACK:
+                    # S3: Wait for ACK0 -> Wait for call 1 from above
                     try:
-                        rcv_p = socket.recvfrom(1024)
+                        rcv_p:Packets = socket.recvfrom(1024)
                         
                         if rcv_p.seq_number == 0:
                             socket.settimeout(None)
                             state = transmissor_States.Wait_1_above
+                    # S2: Wait for ACK0 -> Wait for ACK0
                     except socket.timeout: 
                         socket.sendto(p, address)
                         socket.settimeout(1)
                         state = transmissor_States.Wait_0_ACK
 
                 case transmissor_States.Wait_1_above:
+                    # S5: Wait for call 1 from above -> Wait for ACK1
                     p = Packets(f.read(1020),1)
                     socket.sendto(p, address)
                     socket.settimeout(1)
                     state = transmissor_States.Wait_1_ACK
 
                 case transmissor_States.Wait_1_ACK:
+                    # S8: Wait for ACK1 -> Wait for call 0 from above 
                     try:
-                        rcv_p = socket.recvfrom(1024)
+                        rcv_p:Packets = socket.recvfrom(1024)
                         
                         if rcv_p.seq_number == 1:
                             socket.settimeout(None)
                             state = transmissor_States.Wait_0_above
+                    # S7: Wait for ACK1 -> Wait for ACK1
                     except socket.timeout: 
                         socket.sendto(p, address)
                         socket.settimeout(1)
                         state = transmissor_States.Wait_1_ACK
-
-export
