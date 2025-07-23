@@ -2,9 +2,11 @@ from socket import *
 import os, sys
 from math import ceil
 
-sys.path.append(os.path.abspath("../"))
+#sys.path.append(os.path.abspath("../"))
 
-import utils
+#import utils
+
+from fsm import *
 
 # Dados do servidor (porta e ip)
 serverName = 'localhost'
@@ -21,8 +23,9 @@ with open(f'./arquivos_para_enviar/{fileName}', 'rb') as f:
     # Conta quantos pacotes tem a serem enviados, dividindo cada pacote em 1024 bytes
     packagesCount = ceil(os.path.getsize(f'./arquivos_para_enviar/{fileName}') / 1024)
     # Manda o nome e quantidade de pacotes
-    clientSocket.sendto(fileName.encode(), (serverName, serverPort))
-    clientSocket.sendto(packagesCount.to_bytes(4, byteorder='big'), (serverName, serverPort))
+    #clientSocket.sendto(fileName.encode(), (serverName, serverPort))
+    #clientSocket.sendto(packagesCount.to_bytes(4, byteorder='big'), (serverName, serverPort))
+    FSM_transmissor([fileName.encode(), packagesCount.to_bytes(4, byteorder='big')],clientSocket, (serverName, serverPort))
     fileContent = f.read(1024)
     # Continua no loop até não ter mais o que ler
     dados = []
@@ -31,7 +34,7 @@ with open(f'./arquivos_para_enviar/{fileName}', 'rb') as f:
         #clientSocket.sendto(fileContent, (serverName, serverPort))
         dados.append(fileContent)
         fileContent = f.read(1024)
-    FSM_transmissor(dados)
+    FSM_transmissor(dados, clientSocket, (serverName, serverPort))
 
 
 print('Message successfully sent')

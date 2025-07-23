@@ -1,9 +1,12 @@
 from socket import *
 import os, sys
 
-sys.path.append(os.path.abspath("../"))
+#sys.path.append(os.path.abspath("../"))
 
-import utils
+#import utils
+
+from fsm import *
+
 
 # Inicialização do servidor, tendo a porta, o ip e tipo (UDP)
 serverPort = 12000
@@ -27,10 +30,13 @@ def process_packet(data, filename):
 while True:
     # Lê o inicialmente o nome do arquivo e setta metadata para False, indicando que agora de fato
     # É o arquivo que está sendo enviado
+    packageCount:int = 0
+    filename = ""
     if metadata:
-        filename, clientAddress = serverSocket.recvfrom(1024)
+        pkt_fileName: Packets
+        pkt_fileName, clientAddress = FSM_receptor(serverSocket)
+        filename = pkt_fileName.data[0].decode()
         metadata = False
-        filename = filename.decode()
         name, extension = os.path.splitext(filename)
         file_count = 1
         # Verifica se o arquivo já existe, e se existir, incrementa o contador para criar um nome único
@@ -38,7 +44,7 @@ while True:
             file_count += 1
         filename = 'archived_' + name + f'_{file_count}' + extension
         # Recebe informações da quantidade de pacotes para determinar parada
-        packageCountEncoded, clientAddress = serverSocket.recvfrom(1024)
+        packageCountEncoded = pkt_fileName.data[1]
         packageCount = int.from_bytes(packageCountEncoded, byteorder='big')
         
     message, clientAddress = serverSocket.recvfrom(1024)
