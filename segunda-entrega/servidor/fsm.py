@@ -1,5 +1,6 @@
 from socket import *
 from enum import Enum
+import struct
 
 
 class receptor_States(Enum):
@@ -15,9 +16,23 @@ class transmissor_States(Enum):
 
 
 class Packets:
-    def __init__(self, data, seq_number):
-        self.data = data
+    def __init__(self, seq_number, data):
+        if len(data) > 1020:
+            raise ValueError("data deve ter no máximo 1020 bytes")
         self.seq_number = seq_number
+        self.data = data.ljust(1020, b'\x00')  # completa com zeros até 1020 bytes
+
+    def to_bytes(self) -> bytes:
+        # 'i' = int (4 bytes), '1020s' = bytes com tamanho 1020
+        return struct.pack('i1020s', self.seq_number, self.data)
+
+    @staticmethod
+    def from_bytes(b: bytes) -> 'Packets':
+        if len(b) != 1024:
+            raise ValueError("bytes de entrada devem ter exatamente 1024 bytes")
+        seq, data = struct.unpack('i1020s', b)
+        data = data.rstrip(b'\x00')  # remove padding zeros
+        return Packets(seq, data)
 
 
 def FSM_receptor(socket):
@@ -39,52 +54,42 @@ list: Uma lista contendo os payloads de dados recebidos em ordem.
     while True:
         match state:
             case receptor_States.Wait_0:
-                socket.settimeout(5)
+                p_bin, addr = socket.recvfrom(1024)
+                p:Packets = Packets.from_bytes(p_bin)
 
-                try:
-                    p: Packets
-                    p, addr = socket.recvfrom(1024)
-                except socket.timeout:
-                    socket.settimeout(None)
-                    return data, addr
-
-                socket.settimeout(None)
 
                 # R0: Wait for 0 from below -> Wait for 1 from below
                 if p.seq_number == 0:
-                    data.append(p.data)
+                    data.append(p.data.rstrip(b'\x00'))
                     send_p = Packets(seq_number=0, data=b"ACK")
-                    socket.sendto(send_p, addr)
+                    socket.sendto(send_p.to_bytes(), addr)
                     state = receptor_States.Wait_1
+                elif p.seq_number == 3:
+                    return data, addr
                 # R3: Wait for 0 from below -> Wait for 0 from below
                 else:
                     send_p = Packets(seq_number=1, data=b"ACK")
-                    socket.sendto(send_p, addr)
+                    socket.sendto(send_p.to_bytes(), addr)
                     state = receptor_States.Wait_0
 
             case receptor_States.Wait_1:
-                socket.settimeout(5)
-
-                try:
-                    p: Packets
-                    p, addr = socket.recvfrom(1024)
-                except socket.timeout:
-                    socket.settimeout(None)
-                    return data
-
-                socket.settimeout(None)
+                p_bin, addr = socket.recvfrom(1024)
+                p:Packets = Packets.from_bytes(p_bin)
 
                 # R2: Wait for 1 from below -> Wait for 0 from below
                 if p.seq_number == 1:
-                    data.append(p.data)
+                    data.append(p.data.rstrip(b'\x00'))
                     send_p = Packets(seq_number=1, data=b"ACK")
-                    socket.sendto(send_p, addr)
+                    socket.sendto(send_p.to_bytes(), addr)
                     state = receptor_States.Wait_0
+                elif p.seq_number == 3:
+                    return data, addr
                 # R1: Wait for 1 from below -> Wait for 1 from below
                 else:
                     send_p = Packets(seq_number=0, data=b"ACK")
-                    socket.sendto(send_p, addr)
+                    socket.sendto(send_p.to_bytes(), addr)
                     state = receptor_States.Wait_1
+
 
 
 def FSM_transmissor(data, socket, address):
@@ -115,52 +120,60 @@ Nota:
     #p: Packets
     index = 0
     tam_max = len(data)
+    '''
+    Precisa corrigir a divisão dos dados pq a estrutura pacote deve ter mais q 1024
+    '''
 
     while True:
-        if index == tam_max: return
+        if index == tam_max:
+            p = Packets(seq_number=3, data=b"0")
+            socket.sendto(p.to_bytes(), address)
+            return
         match state:
             case transmissor_States.Wait_0_above:
                 # S0: Wait for call 0 from above -> Wait for ACK0
-                p = Packets(data=data[index], seq_number=0)
-                socket.sendto(p, address)
+                p = Packets(seq_number=0, data=data[index])
+                socket.sendto(p.to_bytes(), address)
                 socket.settimeout(1)
                 state = transmissor_States.Wait_0_ACK
 
             case transmissor_States.Wait_0_ACK:
                 # S3: Wait for ACK0 -> Wait for call 1 from above
                 try:
-                    rcv_p: Packets = socket.recvfrom(1024)
+                    rcv_p_bin, addr = socket.recvfrom(1024)
+                    rcv_p: Packets = Packets.from_bytes(rcv_p_bin)
 
                     if rcv_p.seq_number == 0:
                         socket.settimeout(None)
                         index += 1
                         state = transmissor_States.Wait_1_above
                 # S2: Wait for ACK0 -> Wait for ACK0
-                except socket.timeout:
-                    p = Packets(data=data[index], seq_number=0)
-                    socket.sendto(p, address)
+                except timeout:
+                    p = Packets(seq_number=0, data=data[index])
+                    socket.sendto(p.to_bytes(), address)
                     socket.settimeout(1)
                     state = transmissor_States.Wait_0_ACK
 
             case transmissor_States.Wait_1_above:
                 # S5: Wait for call 1 from above -> Wait for ACK1
-                p = Packets(data[index], 1)
-                socket.sendto(p, address)
+                p = Packets(seq_number=1, data=data[index])
+                socket.sendto(p.to_bytes(), address)
                 socket.settimeout(1)
                 state = transmissor_States.Wait_1_ACK
 
             case transmissor_States.Wait_1_ACK:
                 # S8: Wait for ACK1 -> Wait for call 0 from above
                 try:
-                    rcv_p: Packets = socket.recvfrom(1024)
+                    rcv_p_bin, addr = socket.recvfrom(1024)
+                    rcv_p: Packets = Packets.from_bytes(rcv_p_bin)
 
                     if rcv_p.seq_number == 1:
                         socket.settimeout(None)
                         index += 1
                         state = transmissor_States.Wait_0_above
                 # S7: Wait for ACK1 -> Wait for ACK1
-                except socket.timeout:
-                    p = Packets(data=data[index], seq_number=1)
-                    socket.sendto(p, address)
+                except timeout:
+                    p = Packets(seq_number=1, data=data[index])
+                    socket.sendto(p.to_bytes(), address)
                     socket.settimeout(1)
                     state = transmissor_States.Wait_1_ACK
