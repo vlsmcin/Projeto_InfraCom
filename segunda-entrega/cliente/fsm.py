@@ -48,7 +48,7 @@ address (tuple): O endereço do transmissor para o qual os ACKs são enviados.
 Returns:
 list: Uma lista contendo os payloads de dados recebidos em ordem.
     """
-    global addr
+    addr: tuple[str, int]
     state = receptor_States.Wait_0
     data = []
 
@@ -116,12 +116,9 @@ Nota:
 - O socket deve estar configurado para comunicação UDP.
     """
     state = transmissor_States.Wait_0_above
-    #p: Packets
     index = 0
     tam_max = len(data)
-    '''
-    Precisa corrigir a divisão dos dados pq a estrutura pacote deve ter mais q 1024
-    '''
+
 
     while True:
         if index == tam_max:
