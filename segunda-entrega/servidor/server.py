@@ -1,5 +1,4 @@
-from socket import *
-import os, sys
+import os
 from fsm import *
 
 def receive(serverSocket):

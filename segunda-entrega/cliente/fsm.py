@@ -1,7 +1,9 @@
 from socket import *
 from enum import Enum
+from datetime import datetime
 import struct
 import random
+
 
 class receptor_States(Enum):
     Wait_0 = 0
@@ -35,8 +37,6 @@ class Packets:
         return Packets(seq, data)
 
 
-
-
 def FSM_receptor(socket):
     """
 Implementação de uma Máquina de Estados Finitos (FSM) para um receptor de dados usando o protocolo stop-and-wait.
@@ -56,11 +56,11 @@ list: Uma lista contendo os payloads de dados recebidos em ordem, e uma tupla co
         match state:
             case receptor_States.Wait_0:
                 p_bin, addr = socket.recvfrom(1024)
-                p:Packets = Packets.from_bytes(p_bin)
-
+                p: Packets = Packets.from_bytes(p_bin)
 
                 # R0: Wait for 0 from below -> Wait for 1 from below
                 if p.seq_number == 0:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Recebeu pacote seq=0")
                     data.append(p.data.rstrip(b'\x00'))
                     send_p = Packets(seq_number=0, data=b"ACK")
                     socket.sendto(send_p.to_bytes(), addr)
@@ -69,16 +69,18 @@ list: Uma lista contendo os payloads de dados recebidos em ordem, e uma tupla co
                     return data, addr
                 # R3: Wait for 0 from below -> Wait for 0 from below
                 else:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Não recebeu pacote ou pacote com seq diferente de 0")
                     send_p = Packets(seq_number=1, data=b"ACK")
                     socket.sendto(send_p.to_bytes(), addr)
                     state = receptor_States.Wait_0
 
             case receptor_States.Wait_1:
                 p_bin, addr = socket.recvfrom(1024)
-                p:Packets = Packets.from_bytes(p_bin)
+                p: Packets = Packets.from_bytes(p_bin)
 
                 # R2: Wait for 1 from below -> Wait for 0 from below
                 if p.seq_number == 1:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Recebeu pacote seq=1")
                     data.append(p.data.rstrip(b'\x00'))
                     send_p = Packets(seq_number=1, data=b"ACK")
                     socket.sendto(send_p.to_bytes(), addr)
@@ -87,9 +89,11 @@ list: Uma lista contendo os payloads de dados recebidos em ordem, e uma tupla co
                     return data, addr
                 # R1: Wait for 1 from below -> Wait for 1 from below
                 else:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Não recebeu pacote ou pacote com seq diferente de 1")
                     send_p = Packets(seq_number=0, data=b"ACK")
                     socket.sendto(send_p.to_bytes(), addr)
                     state = receptor_States.Wait_1
+
 
 def FSM_transmissor(data, socket, address, PerdaPacote):
     """
@@ -119,7 +123,6 @@ Nota:
     index = 0
     tam_max = len(data)
 
-
     while True:
         if index == tam_max:
             p = Packets(seq_number=3, data=b"FIN")
@@ -128,10 +131,12 @@ Nota:
         match state:
             case transmissor_States.Wait_0_above:
                 # S0: Wait for call 0 from above -> Wait for ACK0
-                if PerdaPacote == False  or random.uniform(0,1) <= 0.80:
+                if PerdaPacote == False or random.uniform(0, 1) <= 0.80:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Enviando pacote de seq=0")
                     p = Packets(seq_number=0, data=data[index])
                     socket.sendto(p.to_bytes(), address)
-                else: print("Uma perda foi simulada")
+                else:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Uma perda foi simulada")
                 socket.settimeout(1)
                 state = transmissor_States.Wait_0_ACK
 
@@ -142,24 +147,30 @@ Nota:
                     rcv_p: Packets = Packets.from_bytes(rcv_p_bin)
 
                     if rcv_p.seq_number == 0:
+                        print(datetime.now().strftime("%H:%M:%S.%f"), "Recebeu ACK0")
                         socket.settimeout(None)
                         index += 1
                         state = transmissor_States.Wait_1_above
                 # S2: Wait for ACK0 -> Wait for ACK0
                 except timeout:
-                    if PerdaPacote == False  or random.uniform(0,1) <= 0.80:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Não recebeu ACK0 esperado")
+                    if PerdaPacote == False or random.uniform(0, 1) <= 0.80:
+                        print(datetime.now().strftime("%H:%M:%S.%f"), "Reenviando pacote de seq=0")
                         p = Packets(seq_number=0, data=data[index])
                         socket.sendto(p.to_bytes(), address)
-                    else: print("Uma perda foi simulada")
+                    else:
+                        print(datetime.now().strftime("%H:%M:%S.%f"), "Uma perda foi simulada")
                     socket.settimeout(1)
                     state = transmissor_States.Wait_0_ACK
 
             case transmissor_States.Wait_1_above:
                 # S5: Wait for call 1 from above -> Wait for ACK1
-                if PerdaPacote == False  or random.uniform(0,1) <= 0.80:
+                if PerdaPacote == False or random.uniform(0, 1) <= 0.80:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Enviando pacoted de seq=1")
                     p = Packets(seq_number=1, data=data[index])
                     socket.sendto(p.to_bytes(), address)
-                else: print("Uma perda foi simulada")
+                else:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Uma perda foi simulada")
                 socket.settimeout(1)
                 state = transmissor_States.Wait_1_ACK
 
@@ -170,14 +181,18 @@ Nota:
                     rcv_p: Packets = Packets.from_bytes(rcv_p_bin)
 
                     if rcv_p.seq_number == 1:
+                        print(datetime.now().strftime("%H:%M:%S.%f"), "Recebeu ACK1")
                         socket.settimeout(None)
                         index += 1
                         state = transmissor_States.Wait_0_above
                 # S7: Wait for ACK1 -> Wait for ACK1
                 except timeout:
-                    if PerdaPacote == False  or random.uniform(0,1) <= 0.80:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), "Não recebeu ACK1 esperado")
+                    if PerdaPacote == False or random.uniform(0, 1) <= 0.80:
+                        print(datetime.now().strftime("%H:%M:%S.%f"), "Reenviando pacote de seq=1")
                         p = Packets(seq_number=1, data=data[index])
                         socket.sendto(p.to_bytes(), address)
-                    else: print("Uma perda foi simulada")
+                    else:
+                        print(datetime.now().strftime("%H:%M:%S.%f"), "Uma perda foi simulada")
                     socket.settimeout(1)
                     state = transmissor_States.Wait_1_ACK
