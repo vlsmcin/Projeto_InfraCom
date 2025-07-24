@@ -3,16 +3,16 @@ import os, sys
 from math import ceil
 from fsm import *
 
-def send(fileName, clientSocket):
+def send(fileName, clientSocket, Perda_de_Pacote):
     with open(f'./arquivos_para_enviar/{fileName}', 'rb') as f:
         packagesCount = ceil(os.path.getsize(f'./arquivos_para_enviar/{fileName}') / 1020)
-        FSM_transmissor([fileName.encode(), packagesCount.to_bytes(4, byteorder='big')],clientSocket, (serverName, serverPort))
+        FSM_transmissor([fileName.encode(), packagesCount.to_bytes(4, byteorder='big')],clientSocket, (serverName, serverPort), Perda_de_Pacote)
         fileContent = f.read(1020)
         dados = []
         while fileContent:
             dados.append(fileContent)
             fileContent = f.read(1020)
-        FSM_transmissor(dados, clientSocket, (serverName, serverPort))
+        FSM_transmissor(dados, clientSocket, (serverName, serverPort), Perda_de_Pacote)
 
 
     print(f'Arquivo {fileName} enviado para o servidor')
@@ -35,9 +35,9 @@ if __name__ == '__main__':
     serverName = 'localhost'
     serverPort = 12000
     clientSocket = socket(AF_INET, SOCK_DGRAM)
-    fileName = 'ex.txt'
+    fileName = 'nautico.jpg'
 
-    send(fileName, clientSocket)
+    send(fileName, clientSocket, True)
     receive(clientSocket)
 
     clientSocket.close()

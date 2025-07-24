@@ -28,8 +28,8 @@ def receive(serverSocket):
     return filename, packageCount, clientAddress
 
 
-def send(filename, packageCount, clientAddress, serverSocket):
-    FSM_transmissor([filename.encode(), packageCount.to_bytes(4, byteorder='big')],serverSocket, clientAddress)
+def send(filename, packageCount, clientAddress, serverSocket, Perda_de_Pacote):
+    FSM_transmissor([filename.encode(), packageCount.to_bytes(4, byteorder='big')],serverSocket, clientAddress, Perda_de_Pacote)
 
     dados = []
     with open(f'./arquivos_recebidos_servidor/{filename}', 'rb') as f:
@@ -38,7 +38,7 @@ def send(filename, packageCount, clientAddress, serverSocket):
         while fileContent:
             dados.append(fileContent)
             fileContent = f.read(1020)
-    FSM_transmissor(dados, serverSocket, clientAddress)
+    FSM_transmissor(dados, serverSocket, clientAddress, Perda_de_Pacote)
 
     print(f"Enviou o arquivo: {filename}")
 
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     while True:
         fileName, packageCount, ClientAddress = receive(serverSocket)
-        send(fileName, packageCount, ClientAddress, serverSocket)
+        send(fileName, packageCount, ClientAddress, serverSocket, True)
 
 
 
