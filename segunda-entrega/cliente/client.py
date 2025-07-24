@@ -5,7 +5,7 @@ from fsm import *
 
 def send(fileName, clientSocket):
     with open(f'./arquivos_para_enviar/{fileName}', 'rb') as f:
-        packagesCount = ceil(os.path.getsize(f'./arquivos_para_enviar/{fileName}') / 1024)
+        packagesCount = ceil(os.path.getsize(f'./arquivos_para_enviar/{fileName}') / 1020)
         FSM_transmissor([fileName.encode(), packagesCount.to_bytes(4, byteorder='big')],clientSocket, (serverName, serverPort))
         fileContent = f.read(1020)
         dados = []

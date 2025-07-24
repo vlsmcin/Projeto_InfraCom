@@ -20,7 +20,23 @@ A implementação deverá ser realizada conforme os requisitos a seguir:
     - Caso queira adicionar um arquivo para mandar, fazer upload na pasta arquivos_para_enviar
     - Para escolher o arquivo a ser enviado, alterar a linha 10 do arquivo client.py, especificando a string com nome do arquivo, que está sendo atribuida a variável filename
     - Executar (No linux, trocar python por python3) -> `python client.py`
- 
+
+#### Comandos Úteis
+
+Caso esteja recebendo um erro indicando que a porta já está ocupada, você pode utilizar os seguintes comandos no Linux para identificar e liberar a porta:
+
+```bash
+sudo lsof -i :12000
+```
+
+Este comando listará os processos que estão escutando ou usando a porta especificada, mostrando o PID do programa.
+
+```bash
+kill [PID]
+```
+
+Substitua [PID] pelo número do processo que você obteve no comando anterior.
+
 #### Integrantes
 
 - Daniel Silvestre de França e Souza
