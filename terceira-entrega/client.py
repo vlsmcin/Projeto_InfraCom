@@ -87,10 +87,34 @@ def send(clientSocket):
             print("ERRO:", pkt[1].decode())
         elif pkt[0].decode() == "OK":
             print(f'{friendLogin} foi adicionado a sua lista de amigos.')
+    elif msg.startswith(":RMVF"):
+        friendLogin = msg[6:]
+        FSM_transmissor([b"RMVF", friendLogin.encode()], clientSocket, (serverName, serverPort))
+
+        pkt, _ = FSM_receptor(clientSocket)
+
+        if pkt[0].decode() == "OK":
+            print(f"Removido {friendLogin} da sua lista de amigos")
+        elif pkt[0].decode() == "ERROR":
+            print("ERROR: ",pkt[1].decode())
+    elif msg.startswith(":FLIST"):
+        FSM_transmissor([b"FLIST"], clientSocket, (serverName, serverPort))
+
+        pkt, _ = FSM_receptor(clientSocket)
+
+        msg = [i.decode() for i in pkt]
+        msg = ''.join(msg)
+
+        clientList = json.loads(msg)
+
+        print("Amigos")
+        for i in clientList:
+            print(i)
 
     else:
-        splitedMessage = splitMessage(msg)
-        FSM_transmissor(splitedMessage, clientSocket, (serverName, serverPort))
+        if msg != "":
+            splitedMessage = splitMessage(msg)
+            FSM_transmissor(splitedMessage, clientSocket, (serverName, serverPort))
 
 
     return

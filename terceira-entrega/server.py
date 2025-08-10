@@ -96,6 +96,37 @@ def receiveMsgClient(clientIP, newPort):
                         message = [b"ERROR",f"{login} ja esta na sua lista de amigos".encode()]
 
                 FSM_transmissor(message, serverSocket, realClientAddress)
+        elif pkt[0].decode() == "RMVF":
+            login = pkt[1].decode()
+            loginExists = True 
+            with clientList_lock:
+                if clientList.get(login, None) == None:
+                    loginExists = False
+                    
+            if not loginExists:
+                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
+            else:
+                message = []
+                
+                with friendshipList_lock:
+                    friendList = friendshipList.get(clientName, ())
+                    if login in friendList:
+                        friendshipList[clientName] = [friend for friend in friendshipList[clientName] if friend != login]
+                        message = [b"OK"]
+                    else:
+                        message = [b"ERROR",f"{login} nao esta na sua lista de amigos".encode()]
+
+                FSM_transmissor(message, serverSocket, realClientAddress)       
+
+        elif pkt[0].decode() == "FLIST":            
+            with friendshipList_lock:
+                friendshipListCopy = friendshipList.get(clientName, ())
+
+                friendshipListCopy = splitMessage(json.dumps(friendshipListCopy))
+
+                FSM_transmissor(friendshipListCopy, serverSocket, realClientAddress)
+
+
         else:
             msg = [i.decode() for i in pkt]
             msg = ''.join(msg)
