@@ -38,11 +38,11 @@ def receiveMsgClient(clientIP, newPort):
             login = pkt[1].decode()
             loginExists = True
             with clientList_lock:
-                if clientList[login] == None:
+                if clientList.get(login, None) == None:
                     loginExists = False
                     
             if not loginExists:
-                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, clientAddress)
+                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
             else:
                 with banVotes_lock:
                     computedVotes = banVotes.get(login, ())
@@ -60,12 +60,12 @@ def receiveMsgClient(clientIP, newPort):
                             banIp, banPort = "", 0
                             with clientList_lock:
                                 banIp, banPort = clientList.pop(login)
-                            FSM_transmissor(message, serverSocket, (banIp, banPort-1))
+                            FSM_transmissor([message.encode()], serverSocket, (banIp, banPort-1))
 
                         message = [b"OK"]
                     else:
                         message = [b"ERROR",f"{clientName} ja havia votado para banir {login}.".encode()]
-                FSM_transmissor(message, serverSocket, clientAddress)
+                FSM_transmissor(message, serverSocket, realClientAddress)
         elif pkt[0].decode() == "LIST":
             clientListCopy = {}
             with clientList_lock:
@@ -74,16 +74,16 @@ def receiveMsgClient(clientIP, newPort):
             clientListCopy.pop("SERVIDOR")
             clientListJSON_list = splitMessage(json.dumps(clientListCopy))
 
-            FSM_transmissor(clientListJSON_list, serverSocket, clientAddress)
+            FSM_transmissor(clientListJSON_list, serverSocket, realClientAddress)
         elif pkt[0].decode() == "ADDF":
             login = pkt[1].decode()
             loginExists = True
             with clientList_lock:
-                if clientList[login] == None:
+                if clientList.get(login, None) == None:
                     loginExists = False
                     
             if not loginExists:
-                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, clientAddress)
+                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
             else:
                 message = []
                 
@@ -95,7 +95,38 @@ def receiveMsgClient(clientIP, newPort):
                     else:
                         message = [b"ERROR",f"{login} ja esta na sua lista de amigos".encode()]
 
-                FSM_transmissor(message, serverSocket, clientAddress)
+                FSM_transmissor(message, serverSocket, realClientAddress)
+        elif pkt[0].decode() == "RMVF":
+            login = pkt[1].decode()
+            loginExists = True 
+            with clientList_lock:
+                if clientList.get(login, None) == None:
+                    loginExists = False
+                    
+            if not loginExists:
+                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
+            else:
+                message = []
+                
+                with friendshipList_lock:
+                    friendList = friendshipList.get(clientName, ())
+                    if login in friendList:
+                        friendshipList[clientName] = [friend for friend in friendshipList[clientName] if friend != login]
+                        message = [b"OK"]
+                    else:
+                        message = [b"ERROR",f"{login} nao esta na sua lista de amigos".encode()]
+
+                FSM_transmissor(message, serverSocket, realClientAddress)       
+
+        elif pkt[0].decode() == "FLIST":            
+            with friendshipList_lock:
+                friendshipListCopy = friendshipList.get(clientName, ())
+
+                friendshipListCopy = splitMessage(json.dumps(friendshipListCopy))
+
+                FSM_transmissor(friendshipListCopy, serverSocket, realClientAddress)
+
+
         else:
             msg = [i.decode() for i in pkt]
             msg = ''.join(msg)
@@ -117,13 +148,13 @@ def broadcast():
 
             for k,v in clientListCopy.items():
 
-                # msgEdit = msg.split('/~')
-                # if len(msgEdit) > 1:
-                #     login = msgEdit[1].split(':')[0]
-                #     with friendshipList_lock:
-                #         friendList = friendshipList.get(k, ())
-                #         if login in friendList:
-                #             msg = msgEdit[0] + "/~ [AMIGO] " + msgEdit[1]
+                msgEdit = msg.split('/~')
+                if len(msgEdit) > 1:
+                    login = msgEdit[1].split(':')[0]
+                    with friendshipList_lock:
+                        friendList = friendshipList.get(k, ())
+                        if login in friendList:
+                            msg = msgEdit[0] + "/~ [AMIGO] " + msgEdit[1]
                             
                 FSM_transmissor(splitMessage(msg), serverSocket, (v[0],v[1]-1)) # Same IP but Port -1
 
