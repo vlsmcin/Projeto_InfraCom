@@ -103,20 +103,20 @@ def receive():
     
     while True:
         with isConnected_lock:
-            if isConnected:
-
-                pkt, _  = FSM_receptor(clientSocket)
-                msg = [i.decode() for i in pkt]
-                msg = ''.join(msg)
-
-                if msg.startswith(f"{login} foi banido."):
-                    print("Voce foi banido do chat.")
-                    isConnected = False
-                    os._exit(0) # Ends the program
-                else:
-                    print(msg)
+            isConnectedCopy = isConnected
+            
+        if isConnectedCopy:
+            pkt, _  = FSM_receptor(clientSocket)
+            msg = [i.decode() for i in pkt]
+            msg = ''.join(msg)
+            if msg.startswith(f"{login} foi banido."):
+                print("Voce foi banido do chat.")
+                isConnected = False
+                os._exit(0) # Ends the program
             else:
-                return
+                print(msg)
+        else:
+            return
 
 if __name__ == '__main__':
     clientSocket = socket(AF_INET, SOCK_DGRAM)
