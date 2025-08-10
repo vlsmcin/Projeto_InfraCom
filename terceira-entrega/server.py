@@ -1,11 +1,13 @@
-import os
 import threading, queue
+import os
 from datetime import datetime
 from fsm import *
 
 serverPort = 12000
 clientList = {"SERVIDOR":('', serverPort)} #   "login" : (ip,porta)
+banVotes = {}
 clientList_lock = threading.Lock()
+banVotes_lock = threading.Lock()
 
 msgQueue = queue.Queue(maxsize=50)
 
@@ -17,25 +19,58 @@ def receiveMsgClient(clientIP, newPort):
     serverSocket.bind(('', newPort))
 
     clientAddress = (clientIP, newPort)
+    clientName = ""
+    with clientList_lock:
+        clientName = [cltName for cltName, cltAdress in clientList.items() if cltAdress == clientAddress]
+    clientName = clientName[0]
 
     while True:
         pkt, realClientAddress = FSM_receptor(serverSocket) # get dynamic client port # TO DO: fix this
         
         if pkt[0].decode() == "BYE":
-            clientName = ""
-            with clientList_lock:
-                clientName = [cltName for cltName, cltAdress in clientList.items() if cltAdress == clientAddress]
-            clientList.pop(clientName[0])
-            print(f"Cliente {clientName[0]} pediu para sair da sala")
+            clientList.pop(clientName)
+            print(f"Cliente {clientName} pediu para sair da sala")
             FSM_transmissor([b"OK"], serverSocket, realClientAddress)
             return
+        elif pkt[0].decode() == "BAN":
+            login = pkt[1].decode()
+            loginExists = True
+            with clientList_lock:
+                if clientList[login] == None:
+                    loginExists = False
+                    
+            if not loginExists:
+                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, clientAddress)
+            else:
+                with banVotes_lock:
+                    computedVotes = banVotes.get(login, ())
+                    if clientName not in computedVotes:
+                        banVotes[login] = banVotes.get(login, ()) + (clientName,)
+                        
+                        votesCount = len(banVotes[login])
+                        requiredVotes = (len(clientList)//2) + 1
+
+                        msgQueue.put([f"[{login}] ban {votesCount}/{requiredVotes}".encode()])
+
+                        if votesCount == requiredVotes:
+                            message = [f"{login} foi banido.".encode()]
+                            msgQueue.put(message)
+                            banIp, banPort = "", 0
+                            with clientList_lock:
+                                banIp, banPort = clientList.pop(login)
+                            FSM_transmissor(message, serverSocket, (banIp, banPort-1))
+
+                        message = [b"OK"]
+                    else:
+                        message = [b"ERROR",f"{clientName} ja havia votado para banir {login}.".encode()]
+                FSM_transmissor(message, serverSocket, clientAdress)
         else:
             clientName = ""
             msg = [i.decode() for i in pkt]
             msg = ''.join(msg)
             with clientList_lock:
                 clientName = [cltName for cltName, cltAdress in clientList.items() if cltAdress == clientAddress]
-            message = f'{clientAddress[0]}:{clientAddress[1]}/~{clientName[0]}: <{msg}> <{datetime.now().strftime("%H:%M:%S, %d/%m/%Y")}>'
+            message = f'{clientAddress[0]}:{clientAddress[1]}/~{clientName}: <{msg}> <{datetime.now().strftime("%H:%M:%S, %d/%m/%Y")}>'
             print(message)
             splitedMessage = splitMessage(message)
             msgQueue.put(splitedMessage)
@@ -76,6 +111,7 @@ if __name__ == '__main__':
                 clientList[clientLogin] = (clientAdress[0], newPort)
                 print("Login recebido:", clientLogin)
                 FSM_transmissor([b"OK", newPort.to_bytes(4, byteorder='big')], serverSocket, clientAdress)
+                msgQueue.put([f'{clientLogin} entrou na sala.'.encode()]) # user joined chat notification
                 # create thread receber mensagem
                 t1 = threading.Thread(target=receiveMsgClient, args=(clientAdress[0], newPort))
                 t1.start()

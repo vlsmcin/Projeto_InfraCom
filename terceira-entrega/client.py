@@ -8,12 +8,15 @@ serverPort = 12000
 isConnected = False
 isConnected_lock = threading.Lock()
 
+login = ""
+
 def splitMessage(texto, tamanho=1020):
     return [texto[i:i+tamanho].encode() for i in range(0, len(texto), tamanho)]
 
 def send(clientSocket):
     global isConnected
     global serverPort
+    global login
     msg = str(input())
 
     # Join chat session
@@ -40,7 +43,6 @@ def send(clientSocket):
             return
     # Exit chat session
     elif msg.startswith(":BYE"):
-  
         FSM_transmissor([b"BYE"], clientSocket, (serverName, serverPort))
 
         pkt, _ = FSM_receptor(clientSocket)
@@ -52,6 +54,16 @@ def send(clientSocket):
                 isConnected = False
             serverPort = 12000 # client will talk with server by new port
             print("Você saiu da sala de chat")
+    elif msg.startswith(":BAN"):
+        loginBan = msg[5:] # Message format: ":BAN <login>"
+        FSM_transmissor([b"BAN", loginBan.encode()], clientSocket, (serverName, serverPort))
+
+        pkt, _ = FSM_receptor(clientSocket)
+
+        if pkt[0].decode() == "ERROR":
+            print(pkt[1].decode())
+        elif pkt[0].decode() == "OK":
+            print(f'Voto para banir {loginBan} computado.')
     else:
         splitedMessage = splitMessage(msg)
         FSM_transmissor(splitedMessage, clientSocket, (serverName, serverPort))
@@ -61,16 +73,24 @@ def send(clientSocket):
 
 def receive():
     global isConnected
+    global login
+    clientSocket = socket(AF_INET, SOCK_DGRAM)
+    clientSocket.bind(('', serverPort-1))
+    
     while True:
         with isConnected_lock:
             if isConnected:
-                clientSocket = socket(AF_INET, SOCK_DGRAM)
-                clientSocket.bind(('', serverPort-1))
 
                 pkt, _  = FSM_receptor(clientSocket)
                 msg = [i.decode() for i in pkt]
                 msg = ''.join(msg)
-                print(msg)
+
+                if msg.startswith(f"{login} foi banido."):
+                    print("Voce foi banido do chat.")
+                    isConnected = False
+                    os._exit(0) # Ends the program
+                else:
+                    print(msg)
             else:
                 return
 
