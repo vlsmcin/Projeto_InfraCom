@@ -1,4 +1,4 @@
-import os
+import os, json
 from fsm import *
 import threading
 
@@ -35,7 +35,6 @@ def send(clientSocket):
                     newPort = int.from_bytes(pkt[1], byteorder='big')
                     serverPort = newPort # client will talk with server by new port
                     print("Você entrou na sala de chat")
-                    print("Nova porta:", newPort)
                     t1 = threading.Thread(target=receive)
                     t1.start()
             else:    
@@ -64,6 +63,31 @@ def send(clientSocket):
             print(pkt[1].decode())
         elif pkt[0].decode() == "OK":
             print(f'Voto para banir {loginBan} computado.')
+    elif msg.startswith(":LIST"):
+        FSM_transmissor([b'LIST'], clientSocket, (serverName, serverPort))
+        
+        pkt, _ = FSM_receptor(clientSocket)
+
+        msg = [i.decode() for i in pkt]
+        msg = ''.join(msg)
+
+        clientList: dict = json.loads(msg)
+
+        print("Nome | IP:PORTA")
+        for k,v in clientList.items():
+            print(f"{k} : {v[0]}:{v[1]}")
+
+    elif msg.startswith(":ADDF"):
+        friendLogin = msg[6:]
+        FSM_transmissor([b"ADDF", friendLogin.encode()], clientSocket, (serverName, serverPort))
+
+        pkt, _ = FSM_receptor(clientSocket)
+
+        if pkt[0].decode() == "ERROR":
+            print("ERRO:", pkt[1].decode())
+        elif pkt[0].decode() == "OK":
+            print(f'{friendLogin} foi adicionado a sua lista de amigos.')
+
     else:
         splitedMessage = splitMessage(msg)
         FSM_transmissor(splitedMessage, clientSocket, (serverName, serverPort))

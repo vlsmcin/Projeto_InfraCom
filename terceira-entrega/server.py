@@ -1,13 +1,15 @@
 import threading, queue
-import os
+import os, json
 from datetime import datetime
 from fsm import *
 
 serverPort = 12000
 clientList = {"SERVIDOR":('', serverPort)} #   "login" : (ip,porta)
 banVotes = {}
+friendshipList = {}
 clientList_lock = threading.Lock()
 banVotes_lock = threading.Lock()
+friendshipList_lock = threading.Lock()
 
 msgQueue = queue.Queue(maxsize=50)
 
@@ -19,14 +21,14 @@ def receiveMsgClient(clientIP, newPort):
     serverSocket.bind(('', newPort))
 
     clientAddress = (clientIP, newPort)
-    clientName = ""
+    clientName_a = []
     with clientList_lock:
-        clientName = [cltName for cltName, cltAdress in clientList.items() if cltAdress == clientAddress]
-    clientName = clientName[0]
+        clientName_a = [cltName for cltName, cltAddress in clientList.items() if cltAddress == clientAddress]
+    clientName = clientName_a[0]
 
     while True:
         pkt, realClientAddress = FSM_receptor(serverSocket) # get dynamic client port # TO DO: fix this
-        
+
         if pkt[0].decode() == "BYE":
             clientList.pop(clientName)
             print(f"Cliente {clientName} pediu para sair da sala")
@@ -50,10 +52,10 @@ def receiveMsgClient(clientIP, newPort):
                         votesCount = len(banVotes[login])
                         requiredVotes = (len(clientList)//2) + 1
 
-                        msgQueue.put([f"[{login}] ban {votesCount}/{requiredVotes}".encode()])
+                        msgQueue.put(f"[{login}] ban {votesCount}/{requiredVotes}")
 
                         if votesCount == requiredVotes:
-                            message = [f"{login} foi banido.".encode()]
+                            message = f"{login} foi banido."
                             msgQueue.put(message)
                             banIp, banPort = "", 0
                             with clientList_lock:
@@ -63,17 +65,43 @@ def receiveMsgClient(clientIP, newPort):
                         message = [b"OK"]
                     else:
                         message = [b"ERROR",f"{clientName} ja havia votado para banir {login}.".encode()]
-                FSM_transmissor(message, serverSocket, clientAdress)
+                FSM_transmissor(message, serverSocket, clientAddress)
+        elif pkt[0].decode() == "LIST":
+            clientListCopy = {}
+            with clientList_lock:
+                clientListCopy = clientList.copy()
+            
+            clientListCopy.pop("SERVIDOR")
+            clientListJSON_list = splitMessage(json.dumps(clientListCopy))
+
+            FSM_transmissor(clientListJSON_list, serverSocket, clientAddress)
+        elif pkt[0].decode() == "ADDF":
+            login = pkt[1].decode()
+            loginExists = True
+            with clientList_lock:
+                if clientList[login] == None:
+                    loginExists = False
+                    
+            if not loginExists:
+                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, clientAddress)
+            else:
+                message = []
+                
+                with friendshipList_lock:
+                    friendList = friendshipList.get(clientName, ())
+                    if login not in friendList:
+                        friendshipList[clientName] = friendshipList.get(clientName, ()) + (login, )
+                        message = [b"OK"]
+                    else:
+                        message = [b"ERROR",f"{login} ja esta na sua lista de amigos".encode()]
+
+                FSM_transmissor(message, serverSocket, clientAddress)
         else:
-            clientName = ""
             msg = [i.decode() for i in pkt]
             msg = ''.join(msg)
-            with clientList_lock:
-                clientName = [cltName for cltName, cltAdress in clientList.items() if cltAdress == clientAddress]
             message = f'{clientAddress[0]}:{clientAddress[1]}/~{clientName}: <{msg}> <{datetime.now().strftime("%H:%M:%S, %d/%m/%Y")}>'
             print(message)
-            splitedMessage = splitMessage(message)
-            msgQueue.put(splitedMessage)
+            msgQueue.put(message)
 
 def broadcast():
     serverSocket = socket(AF_INET, SOCK_DGRAM)
@@ -81,14 +109,23 @@ def broadcast():
     while True:
         if msgQueue.qsize() > 0:
             msg = msgQueue.get()
-            clientList_copy = {}
+            clientListCopy = {}
             with clientList_lock:
-                clientList_copy = clientList.copy()
+                clientListCopy = clientList.copy()
 
-            clientList_copy.pop("SERVIDOR")
+            clientListCopy.pop("SERVIDOR")
 
-            for k,v in clientList_copy.items():
-                FSM_transmissor(msg, serverSocket, (v[0],v[1]-1)) # Same IP but Port -1
+            for k,v in clientListCopy.items():
+
+                # msgEdit = msg.split('/~')
+                # if len(msgEdit) > 1:
+                #     login = msgEdit[1].split(':')[0]
+                #     with friendshipList_lock:
+                #         friendList = friendshipList.get(k, ())
+                #         if login in friendList:
+                #             msg = msgEdit[0] + "/~ [AMIGO] " + msgEdit[1]
+                            
+                FSM_transmissor(splitMessage(msg), serverSocket, (v[0],v[1]-1)) # Same IP but Port -1
 
 if __name__ == '__main__':
     # Inicialização do servidor, tendo a porta, o ip e tipo (UDP)    
@@ -101,22 +138,22 @@ if __name__ == '__main__':
     t0.start()
 
     while True:
-        pkt, clientAdress = FSM_receptor(serverSocket)
+        pkt, clientAddress = FSM_receptor(serverSocket)
         
         if pkt[0].decode() == "HI":
             clientLogin = pkt[1].decode()
             if clientLogin not in clientList.keys():
                 lastKey, lastValue = list(clientList.items())[-1]
                 newPort = lastValue[1] + 2
-                clientList[clientLogin] = (clientAdress[0], newPort)
+                clientList[clientLogin] = (clientAddress[0], newPort)
                 print("Login recebido:", clientLogin)
-                FSM_transmissor([b"OK", newPort.to_bytes(4, byteorder='big')], serverSocket, clientAdress)
-                msgQueue.put([f'{clientLogin} entrou na sala.'.encode()]) # user joined chat notification
+                FSM_transmissor([b"OK", newPort.to_bytes(4, byteorder='big')], serverSocket, clientAddress)
+                msgQueue.put(f'{clientLogin} entrou na sala.') # user joined chat notification
                 # create thread receber mensagem
-                t1 = threading.Thread(target=receiveMsgClient, args=(clientAdress[0], newPort))
+                t1 = threading.Thread(target=receiveMsgClient, args=(clientAddress[0], newPort))
                 t1.start()
                 #t1.join()
                 
             else:
                 errorMessage = "Erro: ja existe um cliente com esse login na sala"
-                FSM_transmissor([b"ERROR", errorMessage.encode()], serverSocket, clientAdress)
+                FSM_transmissor([b"ERROR", errorMessage.encode()], serverSocket, clientAddress)
