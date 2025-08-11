@@ -19,103 +19,110 @@ def send(clientSocket):
     global login
     msg = str(input())
 
-    # Join chat session
-    if msg.startswith(":HI"): 
-        with isConnected_lock:
-            if not isConnected:
-                login = msg[4:] # Message format: ":HI <login>"
-                FSM_transmissor([b"HI", login.encode()], clientSocket, (serverName, serverPort))
-
-                pkt, _ = FSM_receptor(clientSocket)
-
-                if pkt[0].decode() == "ERROR":
-                    print(pkt[1].decode())
-                elif pkt[0].decode() == "OK":
-                    isConnected = True
-                    newPort = int.from_bytes(pkt[1], byteorder='big')
-                    serverPort = newPort # client will talk with server by new port
-                    print("Você entrou na sala de chat")
-                    t1 = threading.Thread(target=receive)
-                    t1.start()
-            else:    
-                print("Você já está conectado")
-            return
-    # Exit chat session
-    elif msg.startswith(":BYE"):
-        FSM_transmissor([b"BYE"], clientSocket, (serverName, serverPort))
-
-        pkt, _ = FSM_receptor(clientSocket)
-     
-        if pkt[0].decode() == "ERROR":
-            print(pkt[1].decode())
-        elif pkt[0].decode() == "OK":
-            with isConnected_lock:
-                isConnected = False
-            serverPort = 12000 # client will talk with server by new port
-            print("Você saiu da sala de chat")
-    elif msg.startswith(":BAN"):
-        loginBan = msg[5:] # Message format: ":BAN <login>"
-        FSM_transmissor([b"BAN", loginBan.encode()], clientSocket, (serverName, serverPort))
-
-        pkt, _ = FSM_receptor(clientSocket)
-
-        if pkt[0].decode() == "ERROR":
-            print(pkt[1].decode())
-        elif pkt[0].decode() == "OK":
-            print(f'Voto para banir {loginBan} computado.')
-    elif msg.startswith(":LIST"):
-        FSM_transmissor([b'LIST'], clientSocket, (serverName, serverPort))
+    match msg:
         
-        pkt, _ = FSM_receptor(clientSocket)
+        # Join chat session
+        case s if  s.startswith(":HI"): 
+            with isConnected_lock:
+                if not isConnected:
+                    login = msg[4:] # Message format: ":HI <login>"
+                    FSM_transmissor([b":HI", login.encode()], clientSocket, (serverName, serverPort))
 
-        msg = [i.decode() for i in pkt]
-        msg = ''.join(msg)
+                    pkt, _ = FSM_receptor(clientSocket)
 
-        clientList: dict = json.loads(msg)
+                    if pkt[0].decode() == "ERROR":
+                        print(pkt[1].decode())
+                    elif pkt[0].decode() == "OK":
+                        isConnected = True
+                        newPort = int.from_bytes(pkt[1], byteorder='big')
+                        serverPort = newPort # client will talk with server by new port
+                        print("Você entrou na sala de chat")
+                        t1 = threading.Thread(target=receive)
+                        t1.start()
+                else:    
+                    print("Você já está conectado")
+                return
+            
+        # Exit chat session
+        case s if s.startswith(":BYE"):
+            FSM_transmissor([b":BYE"], clientSocket, (serverName, serverPort))
 
-        print("Nome | IP:PORTA")
-        for k,v in clientList.items():
-            print(f"{k} : {v[0]}:{v[1]}")
+            pkt, _ = FSM_receptor(clientSocket)
+        
+            if pkt[0].decode() == "ERROR":
+                print(pkt[1].decode())
+            elif pkt[0].decode() == "OK":
+                with isConnected_lock:
+                    isConnected = False
+                serverPort = 12000 # client will talk with server by new port
+                print("Você saiu da sala de chat")
+                os._exit(0)
+                
+        case s if s.startswith(":BAN"):
+            loginBan = msg[5:] # Message format: ":BAN <login>"
+            FSM_transmissor([b":BAN", loginBan.encode()], clientSocket, (serverName, serverPort))
 
-    elif msg.startswith(":ADDF"):
-        friendLogin = msg[6:]
-        FSM_transmissor([b"ADDF", friendLogin.encode()], clientSocket, (serverName, serverPort))
+            pkt, _ = FSM_receptor(clientSocket)
 
-        pkt, _ = FSM_receptor(clientSocket)
+            if pkt[0].decode() == "ERROR":
+                print(pkt[1].decode())
+            elif pkt[0].decode() == "OK":
+                print(f'Voto para banir {loginBan} computado.')
+                
+        case s if s.startswith(":LIST"):
+            FSM_transmissor([b':LIST'], clientSocket, (serverName, serverPort))
+            
+            pkt, _ = FSM_receptor(clientSocket)
 
-        if pkt[0].decode() == "ERROR":
-            print("ERRO:", pkt[1].decode())
-        elif pkt[0].decode() == "OK":
-            print(f'{friendLogin} foi adicionado a sua lista de amigos.')
-    elif msg.startswith(":RMVF"):
-        friendLogin = msg[6:]
-        FSM_transmissor([b"RMVF", friendLogin.encode()], clientSocket, (serverName, serverPort))
+            msg = [i.decode() for i in pkt]
+            msg = ''.join(msg)
 
-        pkt, _ = FSM_receptor(clientSocket)
+            clientList: dict = json.loads(msg)
 
-        if pkt[0].decode() == "OK":
-            print(f"Removido {friendLogin} da sua lista de amigos")
-        elif pkt[0].decode() == "ERROR":
-            print("ERROR: ",pkt[1].decode())
-    elif msg.startswith(":FLIST"):
-        FSM_transmissor([b"FLIST"], clientSocket, (serverName, serverPort))
+            print("Nome | IP:PORTA")
+            for k,v in clientList.items():
+                print(f"{k} : {v[0]}:{v[1]}")
 
-        pkt, _ = FSM_receptor(clientSocket)
+        case s if s.startswith(":ADDF"):
+            friendLogin = msg[6:]
+            FSM_transmissor([b":ADDF", friendLogin.encode()], clientSocket, (serverName, serverPort))
 
-        msg = [i.decode() for i in pkt]
-        msg = ''.join(msg)
+            pkt, _ = FSM_receptor(clientSocket)
 
-        clientList = json.loads(msg)
+            if pkt[0].decode() == "ERROR":
+                print("ERRO:", pkt[1].decode())
+            elif pkt[0].decode() == "OK":
+                print(f'{friendLogin} foi adicionado a sua lista de amigos.')
+                
+        case s if s.startswith(":RMVF"):
+            friendLogin = msg[6:]
+            FSM_transmissor([b":RMVF", friendLogin.encode()], clientSocket, (serverName, serverPort))
 
-        print("Amigos")
-        for i in clientList:
-            print(i)
+            pkt, _ = FSM_receptor(clientSocket)
 
-    else:
-        if msg != "":
-            splitedMessage = splitMessage(msg)
-            FSM_transmissor(splitedMessage, clientSocket, (serverName, serverPort))
+            if pkt[0].decode() == "OK":
+                print(f"Removido {friendLogin} da sua lista de amigos")
+            elif pkt[0].decode() == "ERROR":
+                print("ERROR: ",pkt[1].decode())
+                
+        case s if s.startswith(":FLIST"):
+            FSM_transmissor([b":FLIST"], clientSocket, (serverName, serverPort))
 
+            pkt, _ = FSM_receptor(clientSocket)
+
+            msg = [i.decode() for i in pkt]
+            msg = ''.join(msg)
+            
+            print("Amigos")
+            friendList = json.loads(msg)
+            for i in friendList:
+                print(i)
+
+        case _:
+           
+            if msg != "":
+                splitedMessage = splitMessage(msg)
+                FSM_transmissor(splitedMessage, clientSocket, (serverName, serverPort))
 
     return
 
@@ -135,7 +142,6 @@ def receive():
             msg = ''.join(msg)
             if msg.startswith(f"{login} foi banido."):
                 print("Voce foi banido do chat.")
-                isConnected = False
                 os._exit(0) # Ends the program
             else:
                 print(msg)

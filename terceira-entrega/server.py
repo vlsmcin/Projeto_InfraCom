@@ -29,110 +29,121 @@ def receiveMsgClient(clientIP, newPort):
     while True:
         pkt, realClientAddress = FSM_receptor(serverSocket) # get dynamic client port # TO DO: fix this
 
-        if pkt[0].decode() == "BYE":
-            clientList.pop(clientName)
-            print(f"Cliente {clientName} pediu para sair da sala")
-            FSM_transmissor([b"OK"], serverSocket, realClientAddress)
-            return
-        elif pkt[0].decode() == "BAN":
-            login = pkt[1].decode()
-            loginExists = True
-            with clientList_lock:
-                if clientList.get(login, None) == None:
-                    loginExists = False
-                    
-            if not loginExists:
-                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
-            else:
-                with banVotes_lock:
-                    computedVotes = banVotes.get(login, ())
-                    if clientName not in computedVotes:
-                        banVotes[login] = banVotes.get(login, ()) + (clientName,)
-                        
-                        votesCount = len(banVotes[login])
-                        requiredVotes = (len(clientList)//2) + 1
-
-                        msgQueue.put(f"[{login}] ban {votesCount}/{requiredVotes}")
-
-                        if votesCount == requiredVotes:
-                            message = f"{login} foi banido."
-                            msgQueue.put(message)
-                            banIp, banPort = "", 0
-                            with clientList_lock:
-                                banIp, banPort = clientList.pop(login)
-                            FSM_transmissor([message.encode()], serverSocket, (banIp, banPort-1))
-
-                        message = [b"OK"]
-                    else:
-                        message = [b"ERROR",f"{clientName} ja havia votado para banir {login}.".encode()]
-                FSM_transmissor(message, serverSocket, realClientAddress)
-        elif pkt[0].decode() == "LIST":
-            clientListCopy = {}
-            with clientList_lock:
-                clientListCopy = clientList.copy()
+        match pkt[0].decode():
             
-            clientListCopy.pop("SERVIDOR")
-            clientListJSON_list = splitMessage(json.dumps(clientListCopy))
+            case ":BYE":
+                clientList.pop(clientName)
+                print(f"Cliente {clientName} pediu para sair da sala")
+                FSM_transmissor([b"OK"], serverSocket, realClientAddress)
+                return
+            
+            
+            case ":BAN":
+                login = pkt[1].decode()
+                loginExists = True
+                with clientList_lock:
+                    if clientList.get(login, None) == None:
+                        loginExists = False
+                        
+                if not loginExists:
+                    FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
+                else:
+                    with banVotes_lock:
+                        computedVotes = banVotes.get(login, ())
+                        if clientName not in computedVotes:
+                            banVotes[login] = banVotes.get(login, ()) + (clientName,)
+                            
+                            votesCount = len(banVotes[login])
+                            requiredVotes = (len(clientList)//2) + 1
 
-            FSM_transmissor(clientListJSON_list, serverSocket, realClientAddress)
-        elif pkt[0].decode() == "ADDF":
-            login = pkt[1].decode()
-            loginExists = True
-            with clientList_lock:
-                if clientList.get(login, None) == None:
-                    loginExists = False
+                            msgQueue.put(f"[{login}] ban {votesCount}/{requiredVotes}")
+
+                            if votesCount == requiredVotes:
+                                message = f"{login} foi banido."
+                                msgQueue.put(message)
+                                banIp, banPort = "", 0
+                                with clientList_lock:
+                                    banIp, banPort = clientList.pop(login)
+                                FSM_transmissor([message.encode()], serverSocket, (banIp, banPort-1))
+
+                            message = [b"OK"]
+                        else:
+                            message = [b"ERROR",f"{clientName} ja havia votado para banir {login}.".encode()]
+                    FSM_transmissor(message, serverSocket, realClientAddress)
                     
-            if not loginExists:
-                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
-            else:
-                message = []
-                
-                with friendshipList_lock:
-                    friendList = friendshipList.get(clientName, ())
-                    if login not in friendList:
-                        friendshipList[clientName] = friendshipList.get(clientName, ()) + (login, )
-                        message = [b"OK"]
-                    else:
-                        message = [b"ERROR",f"{login} ja esta na sua lista de amigos".encode()]
-
-                FSM_transmissor(message, serverSocket, realClientAddress)
-        elif pkt[0].decode() == "RMVF":
-            login = pkt[1].decode()
-            loginExists = True 
-            with clientList_lock:
-                if clientList.get(login, None) == None:
-                    loginExists = False
                     
-            if not loginExists:
-                FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
-            else:
-                message = []
+            case ":LIST":
+                clientListCopy = {}
+                with clientList_lock:
+                    clientListCopy = clientList.copy()
                 
+                clientListCopy.pop("SERVIDOR")
+                clientListJSON_list = splitMessage(json.dumps(clientListCopy))
+
+                FSM_transmissor(clientListJSON_list, serverSocket, realClientAddress)
+                
+                
+            case ":ADDF":
+                login = pkt[1].decode()
+                loginExists = True
+                with clientList_lock:
+                    if clientList.get(login, None) == None:
+                        loginExists = False
+                        
+                if not loginExists:
+                    FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
+                else:
+                    message = []
+                    
+                    with friendshipList_lock:
+                        friendList = friendshipList.get(clientName, [])
+                        if login not in friendList:
+                            friendshipList[clientName] = friendshipList.get(clientName, []) + [login]
+                            message = [b"OK"]
+                        else:
+                            message = [b"ERROR",f"{login} ja esta na sua lista de amigos".encode()]
+
+                    FSM_transmissor(message, serverSocket, realClientAddress)
+                    
+                    
+            case ":RMVF":
+                login = pkt[1].decode()
+                loginExists = True 
+                with clientList_lock:
+                    if clientList.get(login, None) == None:
+                        loginExists = False
+                        
+                if not loginExists:
+                    FSM_transmissor([b"ERROR",f"{login} não está no chat.".encode()], serverSocket, realClientAddress)
+                else:
+                    message = []
+                    
+                    with friendshipList_lock:
+                        friendList = friendshipList.get(clientName, [])
+                        if login in friendList:
+                            friendshipList[clientName].remove(login)
+                            message = [b"OK"]
+                        else:
+                            message = [b"ERROR",f"{login} nao esta na sua lista de amigos".encode()]
+
+                    FSM_transmissor(message, serverSocket, realClientAddress)       
+
+
+            case ":FLIST":            
                 with friendshipList_lock:
-                    friendList = friendshipList.get(clientName, ())
-                    if login in friendList:
-                        friendshipList[clientName] = [friend for friend in friendshipList[clientName] if friend != login]
-                        message = [b"OK"]
-                    else:
-                        message = [b"ERROR",f"{login} nao esta na sua lista de amigos".encode()]
+                    friendshipListCopy = friendshipList.get(clientName, [])
 
-                FSM_transmissor(message, serverSocket, realClientAddress)       
+                    friendshipListCopy = splitMessage(json.dumps(friendshipListCopy))
 
-        elif pkt[0].decode() == "FLIST":            
-            with friendshipList_lock:
-                friendshipListCopy = friendshipList.get(clientName, ())
-
-                friendshipListCopy = splitMessage(json.dumps(friendshipListCopy))
-
-                FSM_transmissor(friendshipListCopy, serverSocket, realClientAddress)
+                    FSM_transmissor(friendshipListCopy, serverSocket, realClientAddress)
 
 
-        else:
-            msg = [i.decode() for i in pkt]
-            msg = ''.join(msg)
-            message = f'{clientAddress[0]}:{clientAddress[1]}/~{clientName}: <{msg}> <{datetime.now().strftime("%H:%M:%S, %d/%m/%Y")}>'
-            print(message)
-            msgQueue.put(message)
+            case _:
+                msg = [i.decode() for i in pkt]
+                msg = ''.join(msg)
+                message = f'{clientAddress[0]}:{clientAddress[1]}/~{clientName}: {msg} <{datetime.now().strftime("%H:%M:%S, %d/%m/%Y")}>'
+                print(message)
+                msgQueue.put(message)
 
 def broadcast():
     serverSocket = socket(AF_INET, SOCK_DGRAM)
@@ -140,6 +151,7 @@ def broadcast():
     while True:
         if msgQueue.qsize() > 0:
             msg = msgQueue.get()
+            msgBackup = msg
             clientListCopy = {}
             with clientList_lock:
                 clientListCopy = clientList.copy()
@@ -147,12 +159,12 @@ def broadcast():
             clientListCopy.pop("SERVIDOR")
 
             for k,v in clientListCopy.items():
-
+                msg = msgBackup
                 msgEdit = msg.split('/~')
                 if len(msgEdit) > 1:
                     login = msgEdit[1].split(':')[0]
                     with friendshipList_lock:
-                        friendList = friendshipList.get(k, ())
+                        friendList = friendshipList.get(k, [])
                         if login in friendList:
                             msg = msgEdit[0] + "/~ [AMIGO] " + msgEdit[1]
                             
@@ -171,7 +183,7 @@ if __name__ == '__main__':
     while True:
         pkt, clientAddress = FSM_receptor(serverSocket)
         
-        if pkt[0].decode() == "HI":
+        if pkt[0].decode() == ":HI":
             clientLogin = pkt[1].decode()
             if clientLogin not in clientList.keys():
                 lastKey, lastValue = list(clientList.items())[-1]
